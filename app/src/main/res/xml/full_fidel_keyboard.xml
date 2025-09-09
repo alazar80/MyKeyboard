@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Keyboard xmlns:android="http://schemas.android.com/apk/res/android"
     android:keyWidth="10%p"
-    android:horizontalGap="0px"
+    android:horizontalGap="1px"
     android:verticalGap="0px"
     android:keyHeight="60dp">
 
@@ -45,13 +45,13 @@
     <Key android:codes="4944" android:keyLabel="ፐ" android:popupCharacters="ፑፒፓፔፕፖ"/>
   </Row>
 
-  <!-- Control keys row -->
-  <Row>
-    <Key android:codes="-5" android:keyLabel="⌫" android:keyWidth="30%p"/>
-    <Key android:codes="32" android:keyLabel="␣" android:keyWidth="80%p"/>
-    <Key android:codes="-4" android:keyLabel="⏎" android:keyWidth="30%p"/>
-  </Row>
   <!-- add to the bottom row in both XMLs -->
-  <Key android:codes="-101" android:keyLabel="🌐" android:keyWidth="20%p"/>
+  <Row>
+    <Key android:codes="-101" android:keyLabel="🌐" android:keyWidth="15%p"/>
+    <Key android:codes="32"   android:keyLabel="␣" android:keyWidth="55%p"/>
+    <Key android:codes="-4"   android:keyLabel="⏎" android:keyWidth="15%p"/>
+    <Key android:codes="-5"   android:keyLabel="⌫" android:keyWidth="15%p"/>
+  </Row>
+
 
 </Keyboard>

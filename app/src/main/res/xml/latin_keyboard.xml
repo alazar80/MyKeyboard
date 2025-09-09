@@ -3,7 +3,7 @@
     android:keyWidth="10%p"
     android:keyHeight="60dp"
     android:horizontalGap="0px"
-    android:verticalGap="0px">
+    android:verticalGap="1px">
 
     <Row>
         <Key android:codes="113" android:keyLabel="q"/>
@@ -38,14 +38,14 @@
         <Key android:codes="98" android:keyLabel="b"/>
         <Key android:codes="110" android:keyLabel="n"/>
         <Key android:codes="109" android:keyLabel="m"/>
-        <Key android:codes="-5" android:keyLabel="⌫"/>
     </Row>
 
-    <Row>
-        <Key android:codes="32" android:keyLabel="␣" android:keyWidth="60%p"/>
-        <Key android:codes="-4" android:keyLabel="⏎" android:keyWidth="20%p"/>
-    </Row>
     <!-- add to the bottom row in both XMLs -->
-    <Key android:codes="-101" android:keyLabel="🌐" android:keyWidth="20%p"/>
+    <Row>
+        <Key android:codes="-101" android:keyLabel="🌐" android:keyWidth="15%p"/>
+        <Key android:codes="32"   android:keyLabel="␣" android:keyWidth="55%p"/>
+        <Key android:codes="-4"   android:keyLabel="⏎" android:keyWidth="15%p"/>
+        <Key android:codes="-5"   android:keyLabel="⌫" android:keyWidth="15%p"/>
+    </Row>
 
 </Keyboard>
