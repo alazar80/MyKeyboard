@@ -1,28 +1,44 @@
 package com.example.mykeyboard;
 
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.inputmethodservice.InputMethodService;
 import android.inputmethodservice.Keyboard;
 import android.inputmethodservice.KeyboardView;
+import android.os.Build;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
+import android.preference.PreferenceManager;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
-import android.preference.PreferenceManager;
-import android.content.SharedPreferences;
-import android.os.Vibrator;
-import android.content.Context;
 
 public class AmharicKeyboard extends InputMethodService
         implements KeyboardView.OnKeyboardActionListener {
 
-    private static final int KEY_LANG_SWITCH = -101; // 🌐 key code
-    private static final int KEY_NUM_SWITCH  = Keyboard.KEYCODE_MODE_CHANGE; // optional
+    // Custom key codes in your XML
+    private static final int KEY_LANG_SWITCH = -101;                         // 🌐
+    private static final int KEY_NUM_SWITCH  = Keyboard.KEYCODE_MODE_CHANGE; // -2
+
+    // Pref keys
+    private static final String PREF_ENABLE_LATIN     = "pref_enable_latin";
+    private static final String PREF_START_ON_NUMBERS = "pref_switch_to_numbers";
+    private static final String PREF_ENABLE_SOUND     = "pref_enable_sound";
+    private static final String PREF_ENABLE_VIBRATION = "pref_enable_vibration";
+    private static final String PREF_ENABLE_PHONETIC  = "pref_enable_phonetic";
 
     private KeyboardView kv;
-    private Keyboard keyboard;
 
-    private boolean isLatin = false;
-    private boolean useNumbers = false;
+    // Cache keyboards so we don't re-parse XML each toggle
+    private Keyboard kAmharicLetters;   // R.xml.full_fidel_keyboard
+    private Keyboard kEnglishLetters;   // R.xml.latin_keyboard
+    private Keyboard kGeezNumbers;      // R.xml.geez_numbers
+    private Keyboard kLatinSymbols;     // R.xml.kbd_symbols_latin
+
+    // State
+    private boolean isLatin   = false;  // false=Amharic, true=English
+    private boolean isSymbols = false;  // false=letters, true=numbers/symbols
 
     @Override
     public View onCreateInputView() {
@@ -30,16 +46,18 @@ public class AmharicKeyboard extends InputMethodService
         kv.setOnKeyboardActionListener(this);
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-        isLatin = prefs.getBoolean("pref_enable_latin", false);
-        useNumbers = prefs.getBoolean("pref_switch_to_numbers", false);
+        isLatin   = prefs.getBoolean(PREF_ENABLE_LATIN, false);
+        isSymbols = prefs.getBoolean(PREF_START_ON_NUMBERS, false);
 
-        keyboard = new Keyboard(this,
-                useNumbers ? R.xml.geez_numbers
-                        : (isLatin ? R.xml.latin_keyboard : R.xml.full_fidel_keyboard));
+        // Build all layouts once
+        kAmharicLetters = new Keyboard(this, R.xml.full_fidel_keyboard);
+        kEnglishLetters = new Keyboard(this, R.xml.latin_keyboard);
+        kGeezNumbers    = new Keyboard(this, R.xml.geez_numbers);
+        kLatinSymbols   = new Keyboard(this, R.xml.kbd_symbols_latin);
 
-        kv.setKeyboard(keyboard);
+        kv.setKeyboard(pickKeyboard());
         kv.setPreviewEnabled(true);
-        kv.setSoundEffectsEnabled(prefs.getBoolean("pref_enable_sound", true));
+        kv.setSoundEffectsEnabled(prefs.getBoolean(PREF_ENABLE_SOUND, true));
         kv.setPopupParent(kv);
         return kv;
     }
@@ -47,63 +65,101 @@ public class AmharicKeyboard extends InputMethodService
     @Override
     public void onStartInputView(EditorInfo info, boolean restarting) {
         super.onStartInputView(info, restarting);
+        // Refresh prefs when a new field gets focus
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-        isLatin = prefs.getBoolean("pref_enable_latin", false);
-        useNumbers = prefs.getBoolean("pref_switch_to_numbers", false);
+        isLatin   = prefs.getBoolean(PREF_ENABLE_LATIN, false);
+        isSymbols = prefs.getBoolean(PREF_START_ON_NUMBERS, false);
 
-        keyboard = new Keyboard(this,
-                useNumbers ? R.xml.geez_numbers
-                        : (isLatin ? R.xml.latin_keyboard : R.xml.full_fidel_keyboard));
-        kv.setKeyboard(keyboard);
+        kv.setKeyboard(pickKeyboard());
+        kv.invalidateAllKeys();
+    }
+
+    /** Decide which keyboard to show based on current state. */
+    private Keyboard pickKeyboard() {
+        if (isSymbols) {
+            return isLatin ? kLatinSymbols : kGeezNumbers;
+        } else {
+            return isLatin ? kEnglishLetters : kAmharicLetters;
+        }
+    }
+
+    /** Toggle numbers/symbols page, stay within this IME. */
+    private void toggleSymbols() {
+        isSymbols = !isSymbols;
+        kv.setKeyboard(pickKeyboard());
+        kv.invalidateAllKeys();
+    }
+
+    /** Toggle language (Amharic ↔ English) and keep current page (letters/symbols). */
+    private void toggleLanguage() {
+        isLatin = !isLatin;
+        kv.setKeyboard(pickKeyboard());
+        kv.invalidateAllKeys();
+        // persist
+        PreferenceManager.getDefaultSharedPreferences(this)
+                .edit().putBoolean(PREF_ENABLE_LATIN, isLatin).apply();
     }
 
     @Override
     public void onKey(int primaryCode, int[] keyCodes) {
-        // 1) layout switching keys
+        // Layout switching (never jump to another IME)
         if (primaryCode == KEY_LANG_SWITCH) {
-            isLatin = !isLatin;
-            PreferenceManager.getDefaultSharedPreferences(this)
-                    .edit().putBoolean("pref_enable_latin", isLatin).apply();
-            keyboard = new Keyboard(this, isLatin ? R.xml.latin_keyboard : R.xml.full_fidel_keyboard);
-            kv.setKeyboard(keyboard);
+            toggleLanguage();
             return;
         }
         if (primaryCode == KEY_NUM_SWITCH) {
-            useNumbers = !useNumbers;
-            keyboard = new Keyboard(this, useNumbers ? R.xml.geez_numbers
-                    : (isLatin ? R.xml.latin_keyboard : R.xml.full_fidel_keyboard));
-            kv.setKeyboard(keyboard);
+            toggleSymbols();
             return;
         }
 
-        // 2) normal input
+        // Normal input
         InputConnection ic = getCurrentInputConnection();
         if (ic == null) return;
 
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-        boolean phonetic = prefs.getBoolean("pref_enable_phonetic", false);
-
         switch (primaryCode) {
-            case Keyboard.KEYCODE_DELETE:
+            case Keyboard.KEYCODE_DELETE: { // -5
                 ic.deleteSurroundingText(1, 0);
                 break;
-            case Keyboard.KEYCODE_DONE:
-                ic.sendKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER));
+            }
+            case Keyboard.KEYCODE_DONE: {   // -4
+                handleEnterAction(ic);
                 break;
-            default:
-                char code = (char) primaryCode;
-                // Map only when user chose Latin+phonetic
-                String output = (phonetic && isLatin) ? mapPhonetic(code) : String.valueOf(code);
-                ic.commitText(output, 1);
+            }
+            default: {
+                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+                boolean phonetic = prefs.getBoolean(PREF_ENABLE_PHONETIC, false);
 
-                if (prefs.getBoolean("pref_enable_vibration", true)) {
-                    Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
-                    if (v != null && v.hasVibrator()) v.vibrate(30);
-                }
+                char ch = (char) primaryCode;
+                // Phonetic applies only on Latin letters page (not on symbols)
+                String out = (!isSymbols && phonetic && isLatin)
+                        ? mapPhonetic(ch)
+                        : String.valueOf(ch);
+
+                ic.commitText(out, 1);
+                doHaptic(prefs);
                 break;
+            }
         }
     }
 
+    private void handleEnterAction(InputConnection ic) {
+        EditorInfo ei = getCurrentInputEditorInfo();
+        if (ei != null) {
+            int action = ei.imeOptions & EditorInfo.IME_MASK_ACTION;
+            if (action == EditorInfo.IME_ACTION_GO
+                    || action == EditorInfo.IME_ACTION_SEARCH
+                    || action == EditorInfo.IME_ACTION_SEND
+                    || action == EditorInfo.IME_ACTION_NEXT
+                    || action == EditorInfo.IME_ACTION_DONE) {
+                ic.performEditorAction(action);
+                return;
+            }
+        }
+        ic.sendKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER));
+        ic.sendKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER));
+    }
+
+    /** Minimal demo phonetic mapper for base fidel. Extend as needed. */
     private String mapPhonetic(char input) {
         switch (Character.toLowerCase(input)) {
             case 'h': return "ሀ";
@@ -123,6 +179,17 @@ public class AmharicKeyboard extends InputMethodService
             case 'f': return "ፈ";
             case 'p': return "ፐ";
             default:  return String.valueOf(input);
+        }
+    }
+
+    private void doHaptic(SharedPreferences prefs) {
+        if (!prefs.getBoolean(PREF_ENABLE_VIBRATION, true)) return;
+        Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+        if (v == null || !v.hasVibrator()) return;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            v.vibrate(VibrationEffect.createOneShot(30, VibrationEffect.DEFAULT_AMPLITUDE));
+        } else {
+            v.vibrate(30);
         }
     }
 

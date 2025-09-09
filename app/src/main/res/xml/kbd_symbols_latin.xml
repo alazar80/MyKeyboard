@@ -1,40 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Keyboard
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<Keyboard xmlns:android="http://schemas.android.com/apk/res/android"
     android:keyWidth="10%p"
     android:keyHeight="50dp"
     android:horizontalGap="0px"
     android:verticalGap="0px">
 
+    <!-- Row 1: Numbers -->
     <Row>
-        <Key android:codes="4969" android:keyLabel="፩"/>
-        <Key android:codes="4970" android:keyLabel="፪"/>
-        <Key android:codes="4971" android:keyLabel="፫"/>
-        <Key android:codes="4972" android:keyLabel="፬"/>
-        <Key android:codes="4973" android:keyLabel="፭"/>
-        <Key android:codes="4974" android:keyLabel="፮"/>
-        <Key android:codes="4975" android:keyLabel="፯"/>
-
-        <Key android:codes="4976" android:keyLabel="፰"/>
-        <Key android:codes="4977" android:keyLabel="፱"/>
-        <Key android:codes="4978" android:keyLabel="፲"/>
+        <Key android:codes="49" android:keyLabel="1"/>
+        <Key android:codes="50" android:keyLabel="2"/>
+        <Key android:codes="51" android:keyLabel="3"/>
+        <Key android:codes="52" android:keyLabel="4"/>
+        <Key android:codes="53" android:keyLabel="5"/>
+        <Key android:codes="54" android:keyLabel="6"/>
+        <Key android:codes="55" android:keyLabel="7"/>
+        <Key android:codes="56" android:keyLabel="8"/>
+        <Key android:codes="57" android:keyLabel="9"/>
+        <Key android:codes="48" android:keyLabel="0"/>
     </Row>
-
-    <Row>
-        <Key android:codes="4979" android:keyLabel="፳"/>
-        <Key android:codes="4980" android:keyLabel="፴"/>
-        <Key android:codes="4981" android:keyLabel="፵"/>
-        <Key android:codes="4982" android:keyLabel="፶"/>
-
-        <Key android:codes="4983" android:keyLabel="፷"/>
-        <Key android:codes="4984" android:keyLabel="፸"/>
-        <Key android:codes="4985" android:keyLabel="፹"/>
-        <Key android:codes="4986" android:keyLabel="፺"/>
-        <Key android:codes="4987" android:keyLabel="፻"/>
-        <Key android:codes="4988" android:keyLabel="፼"/>
-    </Row>
-
-
 
     <!-- Row 2: Common symbols -->
     <Row>
@@ -70,7 +53,7 @@
         <Key
             android:keyWidth="15%p"
             android:codes="-2"
-            android:keyLabel="አቡ" />
+            android:keyLabel="ABC" />
 
         <!-- Space -->
         <Key
