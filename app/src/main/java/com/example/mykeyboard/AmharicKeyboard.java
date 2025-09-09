@@ -17,11 +17,10 @@ import android.view.inputmethod.InputConnection;
 public class AmharicKeyboard extends InputMethodService
         implements KeyboardView.OnKeyboardActionListener {
 
-    // Custom key codes in your XML
     private static final int KEY_LANG_SWITCH = -101;                         // 🌐
     private static final int KEY_NUM_SWITCH  = Keyboard.KEYCODE_MODE_CHANGE; // -2
+    private static final int KEY_SHIFT       = Keyboard.KEYCODE_SHIFT;       // -1
 
-    // Pref keys
     private static final String PREF_ENABLE_LATIN     = "pref_enable_latin";
     private static final String PREF_START_ON_NUMBERS = "pref_switch_to_numbers";
     private static final String PREF_ENABLE_SOUND     = "pref_enable_sound";
@@ -30,15 +29,14 @@ public class AmharicKeyboard extends InputMethodService
 
     private KeyboardView kv;
 
-    // Cache keyboards so we don't re-parse XML each toggle
     private Keyboard kAmharicLetters;   // R.xml.full_fidel_keyboard
-    private Keyboard kEnglishLetters;   // R.xml.latin_keyboard
+    private Keyboard kEnglishLetters;   // R.xml.latin_keyboard (the XML above)
     private Keyboard kGeezNumbers;      // R.xml.geez_numbers
     private Keyboard kLatinSymbols;     // R.xml.kbd_symbols_latin
 
-    // State
     private boolean isLatin   = false;  // false=Amharic, true=English
     private boolean isSymbols = false;  // false=letters, true=numbers/symbols
+    private boolean shiftOn   = false;  // Shift/Caps state for Latin letters
 
     @Override
     public View onCreateInputView() {
@@ -49,7 +47,6 @@ public class AmharicKeyboard extends InputMethodService
         isLatin   = prefs.getBoolean(PREF_ENABLE_LATIN, false);
         isSymbols = prefs.getBoolean(PREF_START_ON_NUMBERS, false);
 
-        // Build all layouts once
         kAmharicLetters = new Keyboard(this, R.xml.full_fidel_keyboard);
         kEnglishLetters = new Keyboard(this, R.xml.latin_keyboard);
         kGeezNumbers    = new Keyboard(this, R.xml.geez_numbers);
@@ -65,16 +62,15 @@ public class AmharicKeyboard extends InputMethodService
     @Override
     public void onStartInputView(EditorInfo info, boolean restarting) {
         super.onStartInputView(info, restarting);
-        // Refresh prefs when a new field gets focus
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         isLatin   = prefs.getBoolean(PREF_ENABLE_LATIN, false);
         isSymbols = prefs.getBoolean(PREF_START_ON_NUMBERS, false);
 
         kv.setKeyboard(pickKeyboard());
+        applyShiftVisual();
         kv.invalidateAllKeys();
     }
 
-    /** Decide which keyboard to show based on current state. */
     private Keyboard pickKeyboard() {
         if (isSymbols) {
             return isLatin ? kLatinSymbols : kGeezNumbers;
@@ -83,62 +79,86 @@ public class AmharicKeyboard extends InputMethodService
         }
     }
 
-    /** Toggle numbers/symbols page, stay within this IME. */
     private void toggleSymbols() {
         isSymbols = !isSymbols;
         kv.setKeyboard(pickKeyboard());
+        // when leaving symbols, keep previous shift state on Latin letters
+        applyShiftVisual();
         kv.invalidateAllKeys();
     }
 
-    /** Toggle language (Amharic ↔ English) and keep current page (letters/symbols). */
     private void toggleLanguage() {
         isLatin = !isLatin;
         kv.setKeyboard(pickKeyboard());
+        applyShiftVisual();
         kv.invalidateAllKeys();
-        // persist
         PreferenceManager.getDefaultSharedPreferences(this)
                 .edit().putBoolean(PREF_ENABLE_LATIN, isLatin).apply();
     }
 
+    private void toggleShift() {
+        // Only meaningful on Latin letters page
+        if (!isSymbols && isLatin) {
+            shiftOn = !shiftOn;
+            applyShiftVisual();
+        }
+    }
+
+    private void applyShiftVisual() {
+        // Reflect shift in the view so key labels draw uppercase
+        Keyboard current = pickKeyboard();
+        current.setShifted(shiftOn && !isSymbols && isLatin);
+        kv.setKeyboard(current);
+    }
+
     @Override
     public void onKey(int primaryCode, int[] keyCodes) {
-        // Layout switching (never jump to another IME)
-        if (primaryCode == KEY_LANG_SWITCH) {
-            toggleLanguage();
-            return;
-        }
-        if (primaryCode == KEY_NUM_SWITCH) {
-            toggleSymbols();
-            return;
-        }
+        if (primaryCode == KEY_LANG_SWITCH) { toggleLanguage(); return; }
+        if (primaryCode == KEY_NUM_SWITCH)  { toggleSymbols();  return; }
+        if (primaryCode == KEY_SHIFT)       { toggleShift();    return; }
 
-        // Normal input
         InputConnection ic = getCurrentInputConnection();
         if (ic == null) return;
 
         switch (primaryCode) {
-            case Keyboard.KEYCODE_DELETE: { // -5
+            case Keyboard.KEYCODE_DELETE:
                 ic.deleteSurroundingText(1, 0);
                 break;
-            }
-            case Keyboard.KEYCODE_DONE: {   // -4
+
+            case Keyboard.KEYCODE_DONE:
                 handleEnterAction(ic);
                 break;
-            }
-            default: {
+
+            default:
                 SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
                 boolean phonetic = prefs.getBoolean(PREF_ENABLE_PHONETIC, false);
 
                 char ch = (char) primaryCode;
-                // Phonetic applies only on Latin letters page (not on symbols)
-                String out = (!isSymbols && phonetic && isLatin)
-                        ? mapPhonetic(ch)
-                        : String.valueOf(ch);
+
+                String out;
+                if (!isSymbols && isLatin) {
+                    // Latin letters page
+                    if (phonetic) {
+                        // Phonetic mapping ignores case; Shift doesn't change target fidel
+                        out = mapPhonetic(Character.toLowerCase(ch));
+                    } else {
+                        // Regular Latin typing: apply Shift/Caps to letters
+                        out = Character.isLetter(ch) && shiftOn ?
+                                String.valueOf(Character.toUpperCase(ch)) :
+                                String.valueOf(ch);
+                    }
+                } else {
+                    // Symbols page or Amharic letters page: just commit the char
+                    out = String.valueOf(ch);
+                }
 
                 ic.commitText(out, 1);
+
+                // Optional: if you want one-shot Shift, uncomment below
+                // if (shiftOn && isLatin && !isSymbols && !kEnglishLetters.isShiftedSticky) { shiftOn = false; applyShiftVisual(); }
+
                 doHaptic(prefs);
                 break;
-            }
         }
     }
 
@@ -159,7 +179,6 @@ public class AmharicKeyboard extends InputMethodService
         ic.sendKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER));
     }
 
-    /** Minimal demo phonetic mapper for base fidel. Extend as needed. */
     private String mapPhonetic(char input) {
         switch (Character.toLowerCase(input)) {
             case 'h': return "ሀ";
@@ -197,7 +216,6 @@ public class AmharicKeyboard extends InputMethodService
         InputConnection ic = getCurrentInputConnection();
         if (ic != null && text != null) ic.commitText(text, 1);
     }
-
     @Override public void onPress(int primaryCode) {}
     @Override public void onRelease(int primaryCode) {}
     @Override public void swipeLeft() {}
