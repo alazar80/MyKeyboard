@@ -48,7 +48,7 @@
   <!-- add to the bottom row in both XMLs -->
   <Row>
     <Key android:codes="-101" android:keyLabel="🌐" android:keyWidth="15%p"/>
-    <Key android:codes="-2" android:keyLabel="ቁጥሮች" android:keyWidth="20%p"/>
+    <Key android:codes="-2" android:keyLabel="ቁጥር" android:keyWidth="20%p"/>
     <Key android:codes="32"   android:keyLabel="␣" android:keyWidth="55%p"/>
     <Key android:codes="-4"   android:keyLabel="⏎" android:keyWidth="15%p"/>
     <Key android:codes="-5"   android:keyLabel="⌫" android:keyWidth="15%p"/>
